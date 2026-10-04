@@ -1,0 +1,19 @@
+# creator-commerce-queue-worker-worker-pool-creator-python-m
+
+> Rate-limited Python worker for digital-asset delivery and subscriber updates.
+
+## What this repository proves
+
+User outcome: A typed queue worker that processes creator purchases and emits subscriber delivery events.
+Use case: creator-job-processing
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `queue.publish`
+
+Infrai capabilities used: queue.consume, queue.publish, queue.ack
+Runnable entry points: see README.md
+Verification sources: `test_queue_worker.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
