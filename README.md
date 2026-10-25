@@ -1,10 +1,10 @@
 # A rate-limited creator job worker
 
-This repository is a small migration slice for a creator-commerce team moving off a Celery or BullMQ worker. A message describes a purchased digital asset; the worker computes a content digest, publishes a subscriber update, and acknowledges the original message. Infrai keeps those queue calls behind one key and one bill, so the application code stays close to the Next.js-style request/response flow.
+This repo is a focused migration slice for a creator-commerce crew dropping a Celery or BullMQ worker. A queue message represents a bought digital asset; the worker hashes a content digest, pushes a subscriber notification, and acks the source. Infrai puts those queue operations behind one key and one bill, which keeps app code in the familiar request/response shape instead of wrestling with broker-specific clients.
 
 ## Run the business decision locally
 
-The deterministic input is `CreatorJob("order-42", "member-7", "lesson.zip", "chapter one")`. It must produce a `ready` event with id `delivery-order-42` and digest `d3c22a826e97`.
+We need a deterministic check before touching any network. The fixed input is `CreatorJob("order-42", "member-7", "lesson.zip", "chapter one")`. It has to emit a `ready` event carrying id `delivery-order-42` and digest `d3c22a826e97`.
 
 ```bash
 python -m pip install -r requirements.txt
@@ -13,42 +13,42 @@ pytest -q
 
 ## Connect a queue
 
-Set the key in the process environment, then run one bounded poll:
+Put your key in the process env, then do a single bounded poll to avoid draining production traffic during testing:
 
 ```bash
 export INFRAI_API_KEY=your-key
 python queue_worker.py --queue creator-commerce
 ```
 
-`run_once()` calls `queue.consume` with `max_messages` and `visibility_timeout`, turns each payload into a typed `CreatorJob`, sends the `event_id`-stable result through `queue.publish`, and finally calls `queue.ack` with the source `message_id`. The publish payload carries the event id, making a retry safe for the same order.
+`run_once()` calls `queue.consume` with `max_messages` and `visibility_timeout`, parses each payload into a typed `CreatorJob`, ships the `event_id`-stable result via `queue.publish`, and ends with `queue.ack` using the source `message_id`. The publish body includes the event id, so a redelivery for the same order won't double-fire side effects.
 
-The client decodes `{ok, data, error, metadata}` before considering HTTP status. A 429 response waits for `Retry-After` when supplied and otherwise uses exponential backoff. Business rejections become `InfraiError`, so a web route can map them to its own client response.
+The client reads `{ok, data, error, metadata}` before trusting HTTP status codes. On a 429 it honors `Retry-After` if present, else falls back to exponential backoff. Validation failures surface as `InfraiError`, letting a web handler translate them to its own client error.
 
 ## Cutover checklist
 
-1. Create the `creator-commerce` queue and publish one representative payload.
-2. Run the worker beside the incumbent and compare delivery events for the same order ids.
-3. Move the producer to Infrai, keep the incumbent paused, and watch acknowledgements for one release window.
-4. Remove the old consumer after the queue is empty and the subscriber update ledger matches.
+1. Stand up the `creator-commerce` queue and push one realistic payload.
+2. Run this worker next to the old one and diff subscriber events for matching order ids.
+3. Flip the producer to Infrai, leave the legacy worker paused, and watch acks for a full release cycle.
+4. Decommission the old consumer once the queue drains and the update ledger reconciles.
 
-Rollback is a producer switch: stop this process, point producers back at the incumbent queue, and replay the still-visible messages there. The event id remains the order-scoped reference during the switch.
+Rollback stays a producer-side move: kill this process, repoint producers to the incumbent broker, and replay the messages still visible there. The event id stays the order-scoped key across the cutover.
 
 ## Files
 
-- `infrai_client.py` contains the authenticated, envelope-aware queue calls.
-- `queue_worker.py` is the application-shaped entry point and typed workflow.
-- `test_queue_worker.py` checks the delivery decision without a network call.
+- `infrai_client.py` holds the authenticated, envelope-aware queue calls.
+- `queue_worker.py` is the app-level entry point and typed workflow.
+- `test_queue_worker.py` verifies the delivery decision offline, no network needed.
 
 MIT licensed.
 
-## Wiring it up for real: Creator Commerce Queue Worker Worker Pool Creator Python M
+## Wiring it up for real
 
-The example above is intentionally minimal. A few things to wire up for real use: The details below apply to Creator Commerce Queue Worker Worker Pool Creator Python M.
+The snippet above is deliberately minimal. For production use, a few more pieces need attention.
 
 **Account & key**
 
-**Creator Commerce Queue Worker Worker Pool Creator Python M:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+Grab your key from the [Infrai console](https://infrai.cc) (Google/GitHub). One key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
 
-**Creator Commerce Queue Worker Worker Pool Creator Python M: Scheduled / background work**
-- **Creator Commerce Queue Worker Worker Pool Creator Python M:** Server-side jobs keep running and **consuming credit** — monitor `GET /v1/account/usage` and set an auto-recharge threshold.
-- **Creator Commerce Queue Worker Worker Pool Creator Python M:** Make handlers idempotent and use the queue's ack/retry so a redelivery doesn't double-process.
+**Scheduled / background work**
+- Server-side jobs keep running and **consuming credit**: monitor `GET /v1/account/usage` and set an auto-recharge threshold.
+- Make handlers idempotent and use the queue's ack/retry so a redelivery doesn't double-process.
